@@ -19,7 +19,7 @@ class ProfilerServiceProvider implements ServiceProviderInterface {
         }
 
         if (isset($app['twig'])) {
-            $app->get($app['profiler.data_url'], function() use($app){
+            $app->get($app['profiler.data_url'], function() use($app) {
                 $data = unserialize(urldecode($app['request']->cookies->get($app['profiler.cookie_name'])));
                 return $app['twig']->render('__profiler-data.twig', array(
                     'data' => $data

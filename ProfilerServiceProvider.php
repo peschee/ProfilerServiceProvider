@@ -2,6 +2,7 @@
 
 namespace Rafal\ProfilerServiceProvider;
 
+use Silex\SilexEvents;
 use Silex\Application;
 use Silex\ServiceProviderInterface;
 use Rafal\ProfilerServiceProvider\Twig\ProfilerExtension;
@@ -18,52 +19,50 @@ class ProfilerServiceProvider implements ServiceProviderInterface {
             $app['profiler.cookie_name'] = 'webprofiler';
         }
 
-        if (isset($app['twig'])) {
-            $app->get($app['profiler.data_url'], function() use($app) {
-                $data = unserialize(urldecode($app['request']->cookies->get($app['profiler.cookie_name'])));
-                return $app['twig']->render('__profiler-data.twig', array(
-                    'data' => $data
-                ));
-            });
+        $app->get($app['profiler.data_url'], function() use($app) {
+            $data = unserialize(urldecode($app['request']->cookies->get($app['profiler.cookie_name'])));
+            return $app['twig']->render('__profiler-data.twig', array(
+                'data' => $data
+            ));
+        });
 
-            $app['dispatcher']->addListener('silex.after', function($event) use($app) {
-                $data = array();
-                $request = $event->getRequest();
-                $response = $event->getResponse();
-                $data['request'] = array(
-                    'method'            => $request->getMethod(),
-                    'uri'               => $request->getRequestUri(),
-                    'format'            => $request->getRequestFormat(),
-                    'accept'            => $request->headers->get('accept'),
-                    'accept-charset'    => $request->headers->get('accept-charset'),
-                    'accept-encoding'   => $request->headers->get('accept-encoding'),
-                    'accept-language'   => $request->headers->get('accept-language'),
-                    'connection'        => $request->headers->get('connection'),
-                    'host'              => $request->headers->get('host'),
-                    'user-agent'        => $request->headers->get('user-agent'),
-                );
-                $data['response'] = array(
-                    'code'          => $response->getStatusCode(),
-                    'cache-control' => $response->headers->get('cache-control')
-                );
-                $event->getResponse()->headers->setCookie(new Cookie($app['profiler.cookie_name'], urlencode(serialize($data))));
-            });
+        $app['dispatcher']->addListener(SilexEvents::AFTER, function($event) use($app) {
+            $data = array();
+            $request = $event->getRequest();
+            $response = $event->getResponse();
+            $data['request'] = array(
+                'method'            => $request->getMethod(),
+                'uri'               => $request->getRequestUri(),
+                'format'            => $request->getRequestFormat(),
+                'accept'            => $request->headers->get('accept'),
+                'accept-charset'    => $request->headers->get('accept-charset'),
+                'accept-encoding'   => $request->headers->get('accept-encoding'),
+                'accept-language'   => $request->headers->get('accept-language'),
+                'connection'        => $request->headers->get('connection'),
+                'host'              => $request->headers->get('host'),
+                'user-agent'        => $request->headers->get('user-agent'),
+            );
+            $data['response'] = array(
+                'code'          => $response->getStatusCode(),
+                'cache-control' => $response->headers->get('cache-control')
+            );
+            $event->getResponse()->headers->setCookie(new Cookie($app['profiler.cookie_name'], urlencode(serialize($data))));
+        });
 
-            $oldTwig = $app->raw('twig');
-            $app['twig'] = $app->share(function($c) use ($oldTwig, $app) {
-                $twig = $oldTwig($c);
-                $twig->addExtension(new ProfilerExtension($twig));
+        $oldTwig = $app->raw('twig');
+        $app['twig'] = $app->share(function($c) use ($oldTwig, $app) {
+            $twig = $oldTwig($c);
+            $twig->addExtension(new ProfilerExtension($twig));
 
-                return $twig;
-            });
+            return $twig;
+        });
 
-            $oldLoader = $app->raw('twig.loader.filesystem');
-            $app['twig.loader.filesystem'] = $app->share(function($c) use ($oldLoader, $app) {
-                $loader = $oldLoader($c);
-                $loader->addPath(__DIR__.'/Resources/views');
+        $oldLoader = $app->raw('twig.loader.filesystem');
+        $app['twig.loader.filesystem'] = $app->share(function($c) use ($oldLoader, $app) {
+            $loader = $oldLoader($c);
+            $loader->addPath(__DIR__.'/Resources/views');
 
-                return $loader;
-            });
-        }
+            return $loader;
+        });
     }
 }
